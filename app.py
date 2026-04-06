@@ -5,8 +5,13 @@ from ultralytics import YOLO
 import tempfile
 import os
 
-# Initialize model
-model = YOLO("boxes.pt")
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        model = YOLO("boxes.pt")  # your 7MB model
+    return model
 conf_threshold = 0.05
 
 # ROI setup
@@ -65,7 +70,7 @@ def process_detections(frame, boxes, class_names, show_bg, show_box, use_roi=Fal
 def detect_image(image, show_bg, show_box):
     if image is None:
         return None, 0
-
+    model = get_model()
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     results = model(frame, imgsz=640, conf=conf_threshold, verbose=False)
 
@@ -79,7 +84,7 @@ def detect_image(image, show_bg, show_box):
 def detect_video(video_path, show_bg, use_roi, show_box, progress=gr.Progress()):
     if not video_path or not os.path.exists(video_path):
         return None
-
+    model = get_model()
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return None
