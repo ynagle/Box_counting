@@ -5,17 +5,24 @@ from ultralytics import YOLO
 import tempfile
 import os
 
+# -------------------------
+# Lazy Load Model (IMPORTANT)
+# -------------------------
 model = None
 
 def get_model():
     global model
     if model is None:
-        model = YOLO("boxes.pt")  # your 7MB model
+        model = YOLO("boxes.pt", verbose=False)
     return model
+
 conf_threshold = 0.05
 
-# ROI setup
+# -------------------------
+# ROI SETUP
+# -------------------------
 pts_src = np.array([[0, 129], [1275, 303], [1274, 601], [3, 294]], dtype=np.float32)
+
 width = int(np.linalg.norm(pts_src[0] - pts_src[1]))
 height = int(np.linalg.norm(pts_src[0] - pts_src[3]))
 
@@ -29,7 +36,9 @@ M_inv = cv2.getPerspectiveTransform(
     pts_src
 )
 
-
+# -------------------------
+# DRAW DETECTIONS
+# -------------------------
 def draw_detection(frame, box, cls_id, conf, class_name, use_roi=False):
     x1, y1, x2, y2 = map(int, box[:4])
     color = (0, 255, 0) if class_name == "box" else (255, 255, 0)
@@ -50,9 +59,12 @@ def draw_detection(frame, box, cls_id, conf, class_name, use_roi=False):
     cv2.putText(frame, label, (x_text + 2, y_text - 5),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
 
-
+# -------------------------
+# PROCESS DETECTIONS
+# -------------------------
 def process_detections(frame, boxes, class_names, show_bg, show_box, use_roi=False):
     box_count = 0
+
     for idx, (box, cls_id) in enumerate(zip(boxes.xyxy, boxes.cls)):
         class_name = class_names[int(cls_id)]
 
@@ -66,12 +78,17 @@ def process_detections(frame, boxes, class_names, show_bg, show_box, use_roi=Fal
 
     return box_count
 
-
+# -------------------------
+# IMAGE DETECTION
+# -------------------------
 def detect_image(image, show_bg, show_box):
     if image is None:
         return None, 0
+
     model = get_model()
+
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
     results = model(frame, imgsz=640, conf=conf_threshold, verbose=False)
 
     box_count = process_detections(
@@ -80,24 +97,27 @@ def detect_image(image, show_bg, show_box):
 
     return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), box_count
 
-
-def detect_video(video_path, show_bg, use_roi, show_box, progress=gr.Progress()):
+# -------------------------
+# VIDEO DETECTION
+# -------------------------
+def detect_video(video_path, show_bg, use_roi, show_box):
     if not video_path or not os.path.exists(video_path):
         return None
+
     model = get_model()
+
     cap = cv2.VideoCapture(video_path)
+
     if not cap.isOpened():
         return None
 
     fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
 
-    frame_count = 0
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -112,25 +132,20 @@ def detect_video(video_path, show_bg, use_roi, show_box, progress=gr.Progress())
 
         results = model(detection_frame, imgsz=640, conf=conf_threshold, verbose=False)
 
-        frame_box_count = process_detections(
+        process_detections(
             frame, results[0].boxes, model.names, show_bg, show_box, use_roi
         )
 
         out.write(frame)
-        frame_count += 1
-
-        progress(
-            (frame_count / total_frames) if total_frames > 0 else 0,
-            desc=f"Frame {frame_count}/{total_frames} | Boxes: {frame_box_count}"
-        )
 
     cap.release()
     out.release()
 
     return output_path
 
-
+# -------------------------
 # UI
+# -------------------------
 default_video_path = "test.mp4" if os.path.exists("test.mp4") else None
 default_image_path = "demo.jpg" if os.path.exists("demo.jpg") else None
 
@@ -144,6 +159,7 @@ with gr.Blocks() as app:
 
     with gr.Tabs():
 
+        # IMAGE TAB
         with gr.Tab("Image"):
             image_input = gr.Image(value=default_image_path)
             image_output = gr.Image()
@@ -159,6 +175,7 @@ with gr.Blocks() as app:
                 [image_output, count_output]
             )
 
+        # VIDEO TAB
         with gr.Tab("Video"):
             video_input = gr.Video(value=default_video_path)
             video_output = gr.Video()
@@ -169,11 +186,17 @@ with gr.Blocks() as app:
                 video_output
             )
 
-
-# ✅ CRITICAL FOR RENDER
+# -------------------------
+# RENDER FIX (CRITICAL)
+# -------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.launch(server_name="0.0.0.0", server_port=port, share=False)
+
+    app.queue().launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        share=False
+    )
 # import gradio as gr
 # import cv2
 # import numpy as np
