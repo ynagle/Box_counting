@@ -4,7 +4,10 @@ import numpy as np
 from ultralytics import YOLO
 import tempfile
 import os
-
+# 🔥 ADD THIS FIX
+import torch
+from ultralytics.nn.tasks import DetectionModel
+torch.serialization.add_safe_globals([DetectionModel])
 # -------------------------
 # Lazy Load Model (IMPORTANT)
 # -------------------------
