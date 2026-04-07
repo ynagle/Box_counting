@@ -13,7 +13,7 @@ model = None
 def get_model():
     global model
     if model is None:
-        model = YOLO("boxes.pt", verbose=False)
+        model = YOLO("boxes.pt")
         print("Model classes:", model.names)  # debug once
     return model
 
