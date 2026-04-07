@@ -14,6 +14,7 @@ def get_model():
     global model
     if model is None:
         model = YOLO("boxes.pt", verbose=False)
+        print("Model classes:", model.names)  # debug once
     return model
 
 conf_threshold = 0.05
@@ -63,6 +64,9 @@ def draw_detection(frame, box, cls_id, conf, class_name, use_roi=False):
 # PROCESS DETECTIONS
 # -------------------------
 def process_detections(frame, boxes, class_names, show_bg, show_box, use_roi=False):
+    if boxes is None:
+        return 0  # ✅ FIX
+
     box_count = 0
 
     for idx, (box, cls_id) in enumerate(zip(boxes.xyxy, boxes.cls)):
@@ -87,7 +91,11 @@ def detect_image(image, show_bg, show_box):
 
     model = get_model()
 
-    frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    # ✅ FIX safer image handling
+    if isinstance(image, np.ndarray):
+        frame = image.copy()
+    else:
+        frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
     results = model(frame, imgsz=640, conf=conf_threshold, verbose=False)
 
@@ -101,6 +109,13 @@ def detect_image(image, show_bg, show_box):
 # VIDEO DETECTION
 # -------------------------
 def detect_video(video_path, show_bg, use_roi, show_box):
+    if not video_path:
+        return None
+
+    # ✅ FIX for Gradio v4
+    if isinstance(video_path, dict):
+        video_path = video_path.get("name")
+
     if not video_path or not os.path.exists(video_path):
         return None
 
@@ -166,8 +181,12 @@ with gr.Blocks() as app:
             count_output = gr.Textbox(label="Box Count")
 
             def img_wrapper(img, bg, box):
-                res, count = detect_image(img, bg, box)
-                return res, str(count)
+                try:
+                    res, count = detect_image(img, bg, box)
+                    return res, str(count)
+                except Exception as e:
+                    print("ERROR:", e)
+                    return None, "Error"
 
             gr.Button("Detect").click(
                 img_wrapper,
