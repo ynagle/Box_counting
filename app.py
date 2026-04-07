@@ -180,13 +180,14 @@ with gr.Blocks() as app:
             image_output = gr.Image()
             count_output = gr.Textbox(label="Box Count")
 
-            def img_wrapper(img, bg, box):
-                try:
-                    res, count = detect_image(img, bg, box)
-                    return res, str(count)
-                except Exception as e:
-                    print("ERROR:", e)
-                    return None, "Error"
+           def img_wrapper(img, bg, box):
+            try:
+                res, count = detect_image(img, bg, box)
+                return res, str(count)
+            except Exception as e:
+                import traceback
+                error_msg = traceback.format_exc()
+                return None, error_msg  # 🔥 show full error in textbox
 
             gr.Button("Detect").click(
                 img_wrapper,
