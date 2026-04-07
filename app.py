@@ -178,22 +178,22 @@ with gr.Blocks() as app:
         with gr.Tab("Image"):
             image_input = gr.Image(value=default_image_path)
             image_output = gr.Image()
-            count_output = gr.Textbox(label="Box Count")
+            count_output = gr.Textbox(label="Output / Error", lines=10)
 
-           def img_wrapper(img, bg, box):
-            try:
-                res, count = detect_image(img, bg, box)
-                return res, str(count)
-            except Exception as e:
-                import traceback
-                error_msg = traceback.format_exc()
-                return None, error_msg  # 🔥 show full error in textbox
+            def img_wrapper(img, bg, box):
+                try:
+                    res, count = detect_image(img, bg, box)
+                    return res, str(count)
+                except Exception as e:
+                    import traceback
+                    error_msg = traceback.format_exc()
+                    return None, error_msg
 
-            gr.Button("Detect").click(
-                img_wrapper,
-                [image_input, show_bg, show_box],
-                [image_output, count_output]
-            )
+        gr.Button("Detect").click(
+            img_wrapper,
+            [image_input, show_bg, show_box],
+            [image_output, count_output]
+        )
 
         # VIDEO TAB
         with gr.Tab("Video"):
